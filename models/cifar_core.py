@@ -9,6 +9,25 @@ from tensorboardX import SummaryWriter
 from models import basenet
 from models import dataloader
 import utils
+import pandas as pd
+
+RESULTS_CSV = './data/global_cifar_results.csv'
+
+
+def save_results(domain, save_path, test_results):
+    data = {key: [value] for key, value in test_results.items() if key in ['f1', 'precision', 'recall', 'loss']}
+    experiment, name = save_path.split("/")[-2:]
+    data['domain'] = [domain]
+    data['experiment'] = [experiment]
+    data['name'] = [name]
+
+    data_df = pd.DataFrame(data)
+
+    if os.path.exists(RESULTS_CSV):
+        data_df.to_csv(RESULTS_CSV, mode='a', header=False)
+    else:
+        data_df.to_csv(RESULTS_CSV, mode='w')
+
 
 class CifarModel():
     def __init__(self, opt):
@@ -165,6 +184,9 @@ class CifarModel():
         output_list = []
         feature_list = []
         predict_list = []
+        precision_list = []
+        recall_list = []
+
         with torch.no_grad():
             for i, (images, targets) in enumerate(loader):
                 images, targets = images.to(self.device), targets.to(self.device)
@@ -180,12 +202,36 @@ class CifarModel():
                 output_list.append(outputs.cpu().numpy())
                 feature_list.append(features.cpu().numpy())
 
+                tp_per_class = np.array([(predicted[targets.eq(class_id)] == class_id).sum().item() for class_id in range(10)])
+                fn_per_class = np.array([(predicted[targets.eq(class_id)] != class_id).sum().item() for class_id in range(10)])
+                fp_per_class = np.array([(predicted[targets.eq(class_id).logical_not()] == class_id).sum().item() for class_id in range(10)])
+
+                total_positives = tp_per_class + fn_per_class
+                total_predicted = tp_per_class + fp_per_class
+
+                tpos_not_zero = total_positives > 0
+                tpred_not_zero = total_predicted > 0
+
+                precision_per_class = tp_per_class[tpred_not_zero]/total_predicted[tpred_not_zero]
+                recall_per_class = tp_per_class[tpos_not_zero]/total_positives[tpos_not_zero]
+
+                precision_list.append(precision_per_class.mean())
+                recall_list.append(recall_per_class.mean())
+
+        recall = np.nanmean(recall_list)
+        precision = np.nanmean(precision_list)
+
         test_result = {
             'accuracy': correct*100. / total,
             'predict_labels': predict_list,
             'outputs': np.vstack(output_list),
-            'features': np.vstack(feature_list)
+            'features': np.vstack(feature_list),
+            'precision': precision,
+            'recall': recall,
+            'f1': 0.5 * (precision * recall) / (precision + recall),
+            'loss': test_loss
         }
+
         return test_result
 
     def train(self):
@@ -198,13 +244,17 @@ class CifarModel():
         test_gray_result = self._test(self.test_gray_loader)
         utils.save_pkl(test_color_result, os.path.join(self.save_path, 'test_color_result.pkl'))
         utils.save_pkl(test_gray_result, os.path.join(self.save_path, 'test_gray_result.pkl'))
-        
+
+        save_results("color", self.save_path, test_color_result)
+        save_results("gray", self.save_path, test_gray_result)
+
         # Output the classification accuracy on test set
         info = ('Test on color images accuracy: {}\n' 
                 'Test on gray images accuracy: {}'.format(test_color_result['accuracy'],
                                                           test_gray_result['accuracy']))
         utils.write_info(os.path.join(self.save_path, 'test_result.txt'), info)
-        
+
+
     
 
 

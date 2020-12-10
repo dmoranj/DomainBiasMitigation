@@ -11,6 +11,25 @@ from tensorboardX import SummaryWriter
 from models import basenet
 from models import dataloader
 import utils
+import pandas as pd
+
+
+RESULTS_CSV = './data/global_results.csv'
+
+
+def save_results(duration, experiment, dev_loss, dev_mF1, dev_mPrecision, dev_mRecall):
+    data = {
+        'duration': [duration],
+        'experiment': [experiment],
+        'dev_loss': [dev_loss],
+        'dev_mF1': [dev_mF1],
+        'dev_mPrecision': [dev_mPrecision],
+        'dev_mRecall': [dev_mRecall]
+    }
+
+    data_df = pd.DataFrame(data)
+    data_df.to_csv(RESULTS_CSV, mode='a')
+
 
 class CelebaModel():
     def __init__(self, opt):
@@ -187,7 +206,9 @@ class CelebaModel():
         dev_per_class_AP = utils.compute_weighted_AP(self.dev_target, dev_predict_prob, 
                                                      self.dev_class_weight)
         dev_mAP = utils.compute_mAP(dev_per_class_AP, self.subclass_idx)
-        
+
+        dev_mF1, dev_mPrecision, dev_mRecall = utils.compute_metrics(self.dev_target, dev_predict_prob)
+
         self.log_result('Dev epoch', {'loss': dev_loss/len(self.dev_loader), 'mAP': dev_mAP},
                         self.epoch)
         if dev_mAP > self.best_dev_mAP:
@@ -196,6 +217,8 @@ class CelebaModel():
         
         duration = datetime.now() - start_time
         print('Finish training epoch {}, dev mAP: {}, time used: {}'.format(self.epoch, dev_mAP, duration))
+
+        save_results(duration, dev_mAP. dev_loss, dev_mF1, dev_mPrecision, dev_mRecall)
 
     def test(self):
         # Test and save the result

@@ -51,6 +51,11 @@ def compute_weighted_AP(target, predict_prob, class_weight_list):
 def compute_mAP(per_class_AP, subclass_idx):
     return np.mean([per_class_AP[idx] for idx in subclass_idx])
 
+
+def compute_metrics(target, predicted_prob):
+    return 0.1, 0.2, 0.3
+
+
 def compute_class_weight(target):
     domain_label = target[:, -1]
     per_class_weight = []
