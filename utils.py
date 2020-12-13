@@ -37,7 +37,8 @@ def set_random_seed(seed_number):
 def write_info(filename, info):
     with open(filename, 'w') as f:
         f.write(info)
-        
+
+
 def compute_weighted_AP(target, predict_prob, class_weight_list):
     per_class_AP = []
     for i in range(target.shape[1] - 1):
@@ -48,12 +49,52 @@ def compute_weighted_AP(target, predict_prob, class_weight_list):
         
     return per_class_AP
 
+
 def compute_mAP(per_class_AP, subclass_idx):
     return np.mean([per_class_AP[idx] for idx in subclass_idx])
 
 
-def compute_metrics(target, predicted_prob):
-    return 0.1, 0.2, 0.3
+def compute_matrix_metrics(predicted, targets, classes=10):
+    tp_per_class = np.array([(predicted[targets.eq(class_id)] == class_id).sum().item() for class_id in range(classes)])
+    fn_per_class = np.array([(predicted[targets.eq(class_id)] != class_id).sum().item() for class_id in range(classes)])
+    fp_per_class = np.array(
+        [(predicted[targets.eq(class_id).logical_not()] == class_id).sum().item() for class_id in range(classes)])
+
+    precision_per_class, recall_per_class = compute_precision_and_recall(fn_per_class, fp_per_class, tp_per_class)
+
+    return precision_per_class, recall_per_class
+
+
+def compute_precision_and_recall(fn_per_class, fp_per_class, tp_per_class):
+    total_positives = tp_per_class + fn_per_class
+    total_predicted = tp_per_class + fp_per_class
+    tpos_not_zero = total_positives > 0
+    tpred_not_zero = total_predicted > 0
+    precision_per_class = tp_per_class[tpred_not_zero] / total_predicted[tpred_not_zero]
+    recall_per_class = tp_per_class[tpos_not_zero] / total_positives[tpos_not_zero]
+    return precision_per_class, recall_per_class
+
+
+def compute_matrix_metrics_multilabel(predicted, targets):
+    tp = (predicted + targets == 2).sum(1)
+    fp = (targets - predicted == -1).sum(1)
+    fn = (predicted - targets == -1).sum(1)
+    precision, recall = compute_precision_and_recall(fn, fp, tp)
+
+    return precision, recall
+
+
+def compute_metrics(target, predicted_prob, threshold=0.5):
+    target_tensor = torch.tensor(target[:, :-1])
+    predictions_tensor = (torch.tensor(predicted_prob) > threshold).int()
+
+    precision, recall = compute_matrix_metrics_multilabel(predictions_tensor, target_tensor)
+    precision = np.nanmean(precision)
+    recall = np.nanmean(recall)
+
+    f1 = 0.5 * (precision * recall) / (precision + recall)
+
+    return f1, precision, recall
 
 
 def compute_class_weight(target):

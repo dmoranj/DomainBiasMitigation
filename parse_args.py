@@ -68,8 +68,8 @@ def create_exerpiment_setting(opt):
     if opt['experiment'].startswith('cifar'):
         opt['device'] = torch.device('cuda' if opt['cuda'] else 'cpu')
         opt['print_freq'] = 20
-        opt['batch_size'] = 768
-        opt['total_epochs'] = 1
+        opt['batch_size'] = 1024
+        opt['total_epochs'] = 200
         opt['save_folder'] = os.path.join('record/'+opt['experiment'], 
                                           opt['experiment_name'])
         utils.creat_folder(opt['save_folder'])
@@ -85,7 +85,7 @@ def create_exerpiment_setting(opt):
     elif opt['experiment'].startswith('celeba'):
         opt['device'] = torch.device('cuda' if opt['cuda'] else 'cpu')
         opt['print_freq'] = 50
-        opt['batch_size'] = 32
+        opt['batch_size'] = 64
         opt['total_epochs'] = 50
         opt['save_folder'] = os.path.join('record/'+opt['experiment'], 
                                           opt['experiment_name'])

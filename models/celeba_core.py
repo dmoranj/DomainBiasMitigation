@@ -14,21 +14,29 @@ import utils
 import pandas as pd
 
 
-RESULTS_CSV = './data/global_results.csv'
+RESULTS_CSV = './data/global_celeba_results.csv'
 
 
-def save_results(duration, experiment, dev_loss, dev_mF1, dev_mPrecision, dev_mRecall):
+def save_results(save_path, duration, dev_mAP, dev_loss, dev_mF1, dev_mPrecision, dev_mRecall):
+    experiment, name = save_path.split("/")[-2:]
+
     data = {
+        'name': [name],
         'duration': [duration],
         'experiment': [experiment],
         'dev_loss': [dev_loss],
+        'dev_loss': [dev_mAP],
         'dev_mF1': [dev_mF1],
         'dev_mPrecision': [dev_mPrecision],
         'dev_mRecall': [dev_mRecall]
     }
 
     data_df = pd.DataFrame(data)
-    data_df.to_csv(RESULTS_CSV, mode='a')
+
+    if os.path.exists(RESULTS_CSV):
+        data_df.to_csv(RESULTS_CSV, mode='a', header=False)
+    else:
+        data_df.to_csv(RESULTS_CSV, mode='w')
 
 
 class CelebaModel():
@@ -164,7 +172,7 @@ class CelebaModel():
             if self.print_freq and (i % self.print_freq == 0):
                 print('Training epoch {}: [{}|{}], loss:{}'.format(
                       self.epoch, i+1, len(loader), loss.item()))
-        
+
         self.log_result('Train epoch', {'loss': train_loss/len(loader)}, self.epoch)
         self.epoch += 1
 
@@ -218,7 +226,7 @@ class CelebaModel():
         duration = datetime.now() - start_time
         print('Finish training epoch {}, dev mAP: {}, time used: {}'.format(self.epoch, dev_mAP, duration))
 
-        save_results(duration, dev_mAP. dev_loss, dev_mF1, dev_mPrecision, dev_mRecall)
+        save_results(self.save_path, duration, dev_mAP, dev_loss, dev_mF1, dev_mPrecision, dev_mRecall)
 
     def test(self):
         # Test and save the result

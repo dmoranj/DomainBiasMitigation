@@ -202,19 +202,7 @@ class CifarModel():
                 output_list.append(outputs.cpu().numpy())
                 feature_list.append(features.cpu().numpy())
 
-                tp_per_class = np.array([(predicted[targets.eq(class_id)] == class_id).sum().item() for class_id in range(10)])
-                fn_per_class = np.array([(predicted[targets.eq(class_id)] != class_id).sum().item() for class_id in range(10)])
-                fp_per_class = np.array([(predicted[targets.eq(class_id).logical_not()] == class_id).sum().item() for class_id in range(10)])
-
-                total_positives = tp_per_class + fn_per_class
-                total_predicted = tp_per_class + fp_per_class
-
-                tpos_not_zero = total_positives > 0
-                tpred_not_zero = total_predicted > 0
-
-                precision_per_class = tp_per_class[tpred_not_zero]/total_predicted[tpred_not_zero]
-                recall_per_class = tp_per_class[tpos_not_zero]/total_positives[tpos_not_zero]
-
+                precision_per_class, recall_per_class = utils.compute_matrix_metrics(predicted, targets)
                 precision_list.append(precision_per_class.mean())
                 recall_list.append(recall_per_class.mean())
 
