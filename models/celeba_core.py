@@ -1,5 +1,7 @@
 import os
 import pickle
+from time import strftime
+
 import h5py
 from datetime import datetime
 import numpy as np
@@ -13,8 +15,9 @@ from models import dataloader
 import utils
 import pandas as pd
 
+from models.cifar_core import RESULTS_FOLDER
 
-RESULTS_CSV = './data/global_celeba_results.csv'
+RESULTS_CSV = RESULTS_FOLDER + '/training_{}.csv'
 
 
 def save_results(save_path, duration, dev_mAP, dev_loss, dev_mF1, dev_mPrecision, dev_mRecall):
@@ -22,21 +25,23 @@ def save_results(save_path, duration, dev_mAP, dev_loss, dev_mF1, dev_mPrecision
 
     data = {
         'name': [name],
-        'duration': [duration],
+        'duration': [duration.total_seconds()],
         'experiment': [experiment],
         'dev_loss': [dev_loss],
-        'dev_loss': [dev_mAP],
+        'dev_mAP': [dev_mAP],
         'dev_mF1': [dev_mF1],
         'dev_mPrecision': [dev_mPrecision],
         'dev_mRecall': [dev_mRecall]
     }
 
     data_df = pd.DataFrame(data)
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
+    filename = RESULTS_CSV.format(experiment)
 
-    if os.path.exists(RESULTS_CSV):
-        data_df.to_csv(RESULTS_CSV, mode='a', header=False)
+    if os.path.exists(filename):
+        data_df.to_csv(filename, mode='a', header=False)
     else:
-        data_df.to_csv(RESULTS_CSV, mode='w')
+        data_df.to_csv(filename, mode='w')
 
 
 class CelebaModel():
@@ -172,6 +177,8 @@ class CelebaModel():
             if self.print_freq and (i % self.print_freq == 0):
                 print('Training epoch {}: [{}|{}], loss:{}'.format(
                       self.epoch, i+1, len(loader), loss.item()))
+
+            break
 
         self.log_result('Train epoch', {'loss': train_loss/len(loader)}, self.epoch)
         self.epoch += 1

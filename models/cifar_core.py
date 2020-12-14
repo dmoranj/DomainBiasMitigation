@@ -11,22 +11,26 @@ from models import dataloader
 import utils
 import pandas as pd
 
-RESULTS_CSV = './data/global_cifar_results.csv'
+RESULTS_FOLDER = './data/results/'
+RESULTS_CSV = RESULTS_FOLDER + '/results.csv'
 
 
 def save_results(domain, save_path, test_results):
-    data = {key: [value] for key, value in test_results.items() if key in ['f1', 'precision', 'recall', 'loss']}
+    data = {key: [value] for key, value in test_results.items() if key in ['f1', 'precision', 'recall', 'accuracy', 'loss']}
     experiment, name = save_path.split("/")[-2:]
     data['domain'] = [domain]
     data['experiment'] = [experiment]
     data['name'] = [name]
 
+    os.makedirs(RESULTS_FOLDER, exist_ok=True)
     data_df = pd.DataFrame(data)
 
-    if os.path.exists(RESULTS_CSV):
-        data_df.to_csv(RESULTS_CSV, mode='a', header=False)
+    filename = RESULTS_CSV
+
+    if os.path.exists(filename):
+        data_df.to_csv(filename, mode='a', header=False)
     else:
-        data_df.to_csv(RESULTS_CSV, mode='w')
+        data_df.to_csv(filename, mode='w')
 
 
 class CifarModel():
