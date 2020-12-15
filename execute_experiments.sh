@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-CIFAR=('cifar_color' 'cifar_gray' 'cifar-s_baseline' 'cifar-s_sampling' 'cifar-s_domain_discriminative'
+CIFAR=('cifar-s_domain_discriminative'
        'cifar-s_domain_independent' 'cifar-s_uniconf_adv' 'cifar-s_gradproj_adv'
        'cifar-i_baseline' 'cifar-i_sampling' 'cifar-i_domain_discriminative' 'cifar-i_domain_independent'
        'cifar-c_28_baseline' 'cifar-c_28_sampling' 'cifar-c_28_domain_discriminative' 'cifar-c_28_domain_independent'

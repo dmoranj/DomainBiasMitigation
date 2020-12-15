@@ -15,11 +15,11 @@ RESULTS_FOLDER = './data/results/'
 RESULTS_CSV = RESULTS_FOLDER + '/results.csv'
 
 
-def save_results(domain, save_path, test_results):
+def save_results(domain, save_path, test_results, suffix=""):
     data = {key: [value] for key, value in test_results.items() if key in ['f1', 'precision', 'recall', 'accuracy', 'loss']}
     experiment, name = save_path.split("/")[-2:]
     data['domain'] = [domain]
-    data['experiment'] = [experiment]
+    data['experiment'] = [experiment + suffix]
     data['name'] = [name]
 
     os.makedirs(RESULTS_FOLDER, exist_ok=True)

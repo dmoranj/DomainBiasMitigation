@@ -8,8 +8,23 @@ import torchvision.transforms as transforms
 from tensorboardX import SummaryWriter
 from models import basenet
 from models import dataloader
-from models.cifar_core import CifarModel
+from models.cifar_core import CifarModel, save_results
 import utils
+
+
+def save_all_tests(results, domain, path, keys):
+    for key, value in results.items():
+        if key in keys:
+            complete_results = {
+                'f1': 0.5 * (value[1]*value[2]) / (value[1] + value[2]),
+                'precision': value[1],
+                'recall': value[2],
+                'accuracy': value[0],
+                'loss': results['test_loss']
+            }
+
+            save_results(domain, path, complete_results, suffix="_" + key[8:])
+
 
 class CifarDomainDiscriminative(CifarModel):
     def __init__(self, opt):
@@ -42,39 +57,52 @@ class CifarDomainDiscriminative(CifarModel):
         features = torch.cat(feature_list, dim=0)
         targets = torch.cat(target_list, dim=0)
         
-        accuracy_sum_prob_wo_prior_shift = self.compute_accuracy_sum_prob_wo_prior_shift(outputs, targets)
-        accuracy_sum_prob_w_prior_shift = self.compute_accuracy_sum_prob_w_prior_shift(outputs, targets)
-        accuracy_max_prob_w_prior_shift = self.compute_accuracy_max_prob_w_prior_shift(outputs, targets)
-        
+        metrics_sum_prob_wo_prior_shift = self.compute_accuracy_sum_prob_wo_prior_shift(outputs, targets)
+        metrics_sum_prob_w_prior_shift = self.compute_accuracy_sum_prob_w_prior_shift(outputs, targets)
+        metrics_max_prob_w_prior_shift = self.compute_accuracy_max_prob_w_prior_shift(outputs, targets)
+
         test_result = {
-            'accuracy_sum_prob_wo_prior_shift': accuracy_sum_prob_wo_prior_shift,
-            'accuracy_sum_prob_w_prior_shift': accuracy_sum_prob_w_prior_shift,
-            'accuracy_max_prob_w_prior_shift': accuracy_max_prob_w_prior_shift,
+            'accuracy_sum_prob_wo_prior_shift': metrics_sum_prob_wo_prior_shift[0],
+            'accuracy_sum_prob_w_prior_shift': metrics_sum_prob_w_prior_shift[0],
+            'accuracy_max_prob_w_prior_shift': metrics_max_prob_w_prior_shift[0],
+            'metrics_sum_prob_wo_prior_shift': metrics_sum_prob_wo_prior_shift,
+            'metrics_sum_prob_w_prior_shift': metrics_sum_prob_w_prior_shift,
+            'metrics_max_prob_w_prior_shift':metrics_max_prob_w_prior_shift,
+            'test_loss': test_loss,
             'outputs': outputs.cpu().numpy(),
             'features': features.cpu().numpy()
         }
         return test_result
-    
+
     def compute_accuracy_sum_prob_wo_prior_shift(self, outputs, targets):
         probs = F.softmax(outputs, dim=1).cpu().numpy()
         targets = targets.cpu().numpy()
         predictions = np.argmax(probs[:, :10] + probs[:, 10:], axis=1)
         accuracy = (predictions == targets).mean() * 100.
-        return accuracy
-    
+
+        precision, recall = utils.compute_matrix_metrics(torch.tensor(predictions), torch.tensor(targets))
+
+        return accuracy, np.nanmean(precision), np.nanmean(recall)
+
     def compute_accuracy_sum_prob_w_prior_shift(self, outputs, targets):
         probs = F.softmax(outputs, dim=1).cpu().numpy() * self.prior_shift_weight
         targets = targets.cpu().numpy()
         predictions = np.argmax(probs[:, :10] + probs[:, 10:], axis=1)
         accuracy = (predictions == targets).mean() * 100.
-        return accuracy
+
+        precision, recall = utils.compute_matrix_metrics(torch.tensor(predictions), torch.tensor(targets))
+
+        return accuracy, np.nanmean(precision), np.nanmean(recall)
     
     def compute_accuracy_max_prob_w_prior_shift(self, outputs, targets):
         probs = F.softmax(outputs, dim=1).cpu().numpy() * self.prior_shift_weight
         targets = targets.cpu().numpy()
         predictions = np.argmax(np.stack((probs[:, :10], probs[:, 10:])).max(axis=0), axis=1)
         accuracy = (predictions == targets).mean() * 100.
-        return accuracy
+
+        precision, recall = utils.compute_matrix_metrics(torch.tensor(predictions), torch.tensor(targets))
+
+        return accuracy, np.nanmean(precision), np.nanmean(recall)
 
     def test(self):
         # Test and save the result
@@ -84,7 +112,10 @@ class CifarDomainDiscriminative(CifarModel):
         test_gray_result = self._test(self.test_gray_loader)
         utils.save_pkl(test_color_result, os.path.join(self.save_path, 'test_color_result.pkl'))
         utils.save_pkl(test_gray_result, os.path.join(self.save_path, 'test_gray_result.pkl'))
-        
+
+        save_all_tests(test_color_result, 'color', self.save_path, keys=['metrics_sum_prob_wo_prior_shift', 'metrics_sum_prob_w_prior_shift', 'metrics_max_prob_w_prior_shift'])
+
+
         # Output the classification accuracy on test set for different inference
         # methods
         info = ('Test on color images accuracy sum prob without prior shift: {}\n' 

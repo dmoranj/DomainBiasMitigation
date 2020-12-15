@@ -10,6 +10,8 @@ from models import basenet
 from models import dataloader
 from models.cifar_core import CifarModel
 import utils
+from models.cifar_domain_discriminative import save_all_tests
+
 
 class CifarDomainIndependent(CifarModel):
     def __init__(self, opt):
@@ -48,12 +50,15 @@ class CifarDomainIndependent(CifarModel):
         features = torch.cat(feature_list, dim=0)
         targets = torch.cat(target_list, dim=0)
         
-        accuracy_conditional = self.compute_accuracy_conditional(outputs, targets, test_on_color)
-        accuracy_sum_out = self.compute_accuracy_sum_out(outputs, targets)
+        metrics_conditional = self.compute_accuracy_conditional(outputs, targets, test_on_color)
+        metrics_sum_out = self.compute_accuracy_sum_out(outputs, targets)
         
         test_result = {
-            'accuracy_conditional': accuracy_conditional,
-            'accuracy_sum_out': accuracy_sum_out,
+            'accuracy_conditional': metrics_conditional[0],
+            'accuracy_sum_out': metrics_sum_out[0],
+            'metrics_conditional': metrics_conditional,
+            'metrics_sum_out': metrics_sum_out,
+            'test_loss': test_loss,
             'outputs': outputs.cpu().numpy(),
             'features': features.cpu().numpy()
         }
@@ -70,7 +75,10 @@ class CifarDomainIndependent(CifarModel):
             outputs = outputs[:, class_num:]
         predictions = np.argmax(outputs, axis=1)
         accuracy = (predictions == targets).mean() * 100.
-        return accuracy
+
+        precision, recall = utils.compute_matrix_metrics(torch.tensor(predictions), torch.tensor(targets))
+
+        return accuracy, np.nanmean(precision), np.nanmean(recall)
     
     def compute_accuracy_sum_out(self, outputs, targets):
         outputs = outputs.cpu().numpy()
@@ -79,7 +87,10 @@ class CifarDomainIndependent(CifarModel):
         class_num = outputs.shape[1] // 2
         predictions = np.argmax(outputs[:, :class_num] + outputs[:, class_num:], axis=1)
         accuracy = (predictions == targets).mean() * 100.
-        return accuracy
+
+        precision, recall = utils.compute_matrix_metrics(torch.tensor(predictions), torch.tensor(targets))
+
+        return accuracy, np.nanmean(precision), np.nanmean(recall)
 
     def test(self):
         # Test and save the result
@@ -89,7 +100,9 @@ class CifarDomainIndependent(CifarModel):
         test_gray_result = self._test(self.test_gray_loader, test_on_color=False)
         utils.save_pkl(test_color_result, os.path.join(self.save_path, 'test_color_result.pkl'))
         utils.save_pkl(test_gray_result, os.path.join(self.save_path, 'test_gray_result.pkl'))
-        
+
+        save_all_tests(test_color_result, 'color', self.save_path, ["metrics_conditional", "metrics_sum_out"])
+
         # Output the classification accuracy on test set for different inference
         # methods
         info = ('Test on color images accuracy conditional: {}\n' 
@@ -101,5 +114,3 @@ class CifarDomainIndependent(CifarModel):
                         test_gray_result['accuracy_conditional'],
                         test_gray_result['accuracy_sum_out']))
         utils.write_info(os.path.join(self.save_path, 'test_result.txt'), info)
-    
-    
